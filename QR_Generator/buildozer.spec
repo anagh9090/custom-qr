@@ -7,7 +7,7 @@ title = QR Generator
 package.name = qrgenerator
 
 # (str) Package domain (can be your domain or placeholder)
-package.domain = org.anagh
+package.domain = coding-by-anagh.neocities.org
 
 # (str) Source code where main.py is located
 source.dir = .
