@@ -1,19 +1,16 @@
-name: Build and Sign APKs
+name: Build APKs
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -25,48 +22,53 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git python3-pip openjdk-11-jdk unzip wget zip autoconf libtool automake pkg-config build-essential
+            git zip unzip openjdk-17-jdk \
+            python3-pip python3-setuptools python3-wheel \
+            build-essential libssl-dev libffi-dev \
+            libsqlite3-dev libbz2-dev zlib1g-dev \
+            autoconf automake libtool pkg-config
 
-      - name: Install Buildozer & Cython
+      - name: Install Android SDK & build-tools
+        run: |
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          mv cmdline-tools latest
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+
+      - name: Install Buildozer
         run: |
           pip install --upgrade pip
           pip install buildozer cython
 
-      - name: Download Android Command Line Tools
-        run: |
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          cd $ANDROID_SDK_ROOT/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip cmdline-tools.zip
-          mv cmdline-tools latest
-          rm cmdline-tools.zip
-
-      - name: Accept licenses & install SDK & Build-tools
-        run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-
-      - name: Generate temporary debug keystore
-        run: |
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug,O=QRApp,L=City,S=State,C=US"
-
-      - name: Build and sign QR Generator APK
+      - name: Build QR_Generator APK
         run: |
           cd QR_Generator
           buildozer android debug
-          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ../debug.keystore bin/*.apk androiddebugkey -storepass android -keypass android
+        env:
+          ANDROID_HOME: ${{ runner.home }}/android-sdk
+          PATH: ${{ runner.home }}/android-sdk/cmdline-tools/latest/bin:${{ runner.home }}/android-sdk/platform-tools:$PATH
 
-      - name: Build and sign QR Scanner APK
+      - name: Upload QR_Generator APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QR_Generator-APK
+          path: QR_Generator/bin/*.apk
+
+      - name: Build QR_Scanner APK
         run: |
           cd QR_Scanner
           buildozer android debug
-          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ../debug.keystore bin/*.apk androiddebugkey -storepass android -keypass android
+        env:
+          ANDROID_HOME: ${{ runner.home }}/android-sdk
+          PATH: ${{ runner.home }}/android-sdk/cmdline-tools/latest/bin:${{ runner.home }}/android-sdk/platform-tools:$PATH
 
-      - name: Upload APKs
+      - name: Upload QR_Scanner APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR_APKs
-          path: |
-            QR_Generator/bin/*.apk
-            QR_Scanner/bin/*.apk
-
+          name: QR_Scanner-APK
+          path: QR_Scanner/bin/*.apk
