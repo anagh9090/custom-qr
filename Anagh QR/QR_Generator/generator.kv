@@ -1,0 +1,18 @@
+<GeneratorLayout>:
+    orientation: "vertical"
+    padding: 20
+    spacing: 20
+
+    TextInput:
+        id: qr_text
+        hint_text: "Enter text to generate QR"
+        multiline: False
+        font_size: 20
+
+    Button:
+        text: "Generate QR"
+        font_size: 20
+        on_press: root.generate_qr(qr_text.text)
+
+    Image:
+        source: root.qr_image_path
