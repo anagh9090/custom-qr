@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
-      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
     steps:
       - name: Checkout repo
@@ -24,25 +21,13 @@ jobs:
         with:
           python-version: 3.10
 
-      - name: Cache Python packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: python-pip-${{ hashFiles('**/requirements.txt') }}
-
-      - name: Cache Buildozer directory
-        uses: actions/cache@v3
-        with:
-          path: ~/.buildozer
-          key: buildozer-${{ runner.os }}-cache
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             git python3-pip openjdk-11-jdk unzip wget zip autoconf libtool automake pkg-config build-essential
 
-      - name: Install Buildozer
+      - name: Install Buildozer & Cython
         run: |
           pip install --upgrade pip
           pip install buildozer cython
@@ -56,22 +41,26 @@ jobs:
           mv cmdline-tools latest
           rm cmdline-tools.zip
 
-      - name: Accept licenses and install SDK & build-tools
+      - name: Accept licenses & install SDK & Build-tools
         run: |
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
           $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-      - name: Build and Sign QR Generator APK
+      - name: Generate temporary debug keystore
+        run: |
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug,O=QRApp,L=City,S=State,C=US"
+
+      - name: Build and sign QR Generator APK
         run: |
           cd QR_Generator
           buildozer android debug
-          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ${{ github.workspace }}/keystore.jks bin/YourAppName-debug.apk $KEY_ALIAS -storepass $KEYSTORE_PASSWORD -keypass $KEY_PASSWORD
+          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ../debug.keystore bin/*.apk androiddebugkey -storepass android -keypass android
 
-      - name: Build and Sign QR Scanner APK
+      - name: Build and sign QR Scanner APK
         run: |
           cd QR_Scanner
           buildozer android debug
-          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ${{ github.workspace }}/keystore.jks bin/YourAppName-debug.apk $KEY_ALIAS -storepass $KEYSTORE_PASSWORD -keypass $KEY_PASSWORD
+          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ../debug.keystore bin/*.apk androiddebugkey -storepass android -keypass android
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
@@ -80,3 +69,4 @@ jobs:
           path: |
             QR_Generator/bin/*.apk
             QR_Scanner/bin/*.apk
+
