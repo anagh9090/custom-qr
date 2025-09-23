@@ -1,4 +1,4 @@
-name: Build APKs
+name: Build QR Apps APKs
 
 on:
   push:
@@ -7,37 +7,48 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-apks:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repo
+      # Step 1: Checkout your repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Step 2: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      # Step 3: Install dependencies
+      - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install buildozer kivy
+          python3 -m pip install --upgrade pip
+          python3 -m pip install cython buildozer kivy pillow qrcode pyzbar
 
+      # Step 4: Build QR Generator APK
       - name: Build QR Generator APK
+        working-directory: QR_Generator
         run: |
-          cd QR_Generator
           buildozer android debug
 
-      - name: Build QR Scanner APK
-        run: |
-          cd QR_Scanner
-          buildozer android debug
-
-      - name: Upload APKs
+      # Step 5: Upload QR Generator APK
+      - name: Upload QR Generator APK
         uses: actions/upload-artifact@v4
         with:
-          name: APKs
-          path: |
-            QR_Generator/bin/*.apk
-            QR_Scanner/bin/*.apk
+          name: QR_Generator_APK
+          path: QR_Generator/bin/*.apk
+
+      # Step 6: Build QR Scanner APK
+      - name: Build QR Scanner APK
+        working-directory: QR_Scanner
+        run: |
+          buildozer android debug
+
+      # Step 7: Upload QR Scanner APK
+      - name: Upload QR Scanner APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QR_Scanner_APK
+          path: QR_Scanner/bin/*.apk
+
