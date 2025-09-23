@@ -1,0 +1,18 @@
+<ScannerLayout>:
+    orientation: "vertical"
+    padding: 20
+    spacing: 20
+
+    FileChooserIconView:
+        id: filechooser
+        size_hint_y: 0.8
+
+    Button:
+        text: "Scan QR"
+        font_size: 20
+        on_press: root.scan_qr(filechooser.selection[0] if filechooser.selection else "")
+
+    Label:
+        id: result_label
+        text: "Result will appear here"
+        font_size: 20
