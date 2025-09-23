@@ -37,4 +37,4 @@ version = 1.0
 #presplash.filename = %(source.dir)s/presplash.png
 
 # (str) Package format
-android.arch = arm64-v8a,armeabi-v7a
+android.arch = armeabi-v7a
