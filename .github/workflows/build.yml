@@ -1,4 +1,4 @@
-name: Build QR Apps APKs
+name: Build APKs
 
 on:
   push:
@@ -7,48 +7,56 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-apks:
+  build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: ${{ github.workspace }}/android-sdk
+
     steps:
-      # Step 1: Checkout your repo
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      # Step 2: Set up Python
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
 
-      # Step 3: Install dependencies
-      - name: Install Python dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install cython buildozer kivy pillow qrcode pyzbar
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip build-essential openjdk-11-jdk unzip wget git
+        pip install --upgrade pip
+        pip install cython buildozer
 
-      # Step 4: Build QR Generator APK
-      - name: Build QR Generator APK
-        working-directory: QR_Generator
-        run: |
-          buildozer android debug
+    - name: Install Android SDK & NDK
+      run: |
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        cd $ANDROID_HOME/cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
+        unzip tools.zip
+        rm tools.zip
+        mkdir -p $ANDROID_HOME/licenses
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" >> $ANDROID_HOME/licenses/android-sdk-license
+        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_HOME/licenses/android-sdk-license
+        export PATH=$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/platform-tools:$PATH
+        yes | sdkmanager --licenses
+        sdkmanager "platform-tools" "platforms;android-31" "build-tools;31.0.0" "ndk;25.2.9519653"
 
-      # Step 5: Upload QR Generator APK
-      - name: Upload QR Generator APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: QR_Generator_APK
-          path: QR_Generator/bin/*.apk
+    - name: Build QR Generator APK
+      working-directory: ./QR_Generator
+      run: |
+        buildozer android debug
 
-      # Step 6: Build QR Scanner APK
-      - name: Build QR Scanner APK
-        working-directory: QR_Scanner
-        run: |
-          buildozer android debug
+    - name: Build QR Scanner APK
+      working-directory: ./QR_Scanner
+      run: |
+        buildozer android debug
 
-      # Step 7: Upload QR Scanner APK
-      - name: Upload QR Scanner APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: QR_Scanner_APK
-          path: QR_Scanner/bin/*.apk
-
+    - name: Upload APKs
+      uses: actions/upload-artifact@v4
+      with:
+        name: APKs
+        path: |
+          QR_Generator/bin/*.apk
+          QR_Scanner/bin/*.apk
