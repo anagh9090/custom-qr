@@ -1,4 +1,4 @@
-name: Build APKs
+name: Build QR APKs
 
 on:
   push:
@@ -6,15 +6,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  setup:
+  build-generator:
     runs-on: ubuntu-latest
-    outputs:
-      android-home: ${{ steps.set-android-home.outputs.android-home }}
+    name: Build QR Generator APK
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -27,64 +27,89 @@ jobs:
             python3-pip python3-setuptools python3-wheel \
             build-essential libssl-dev libffi-dev \
             libsqlite3-dev libbz2-dev zlib1g-dev \
-            autoconf automake libtool pkg-config curl
+            autoconf automake libtool pkg-config
 
       - name: Install Android SDK & Build-tools
-        id: set-android-home
         run: |
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
           curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o cmdline-tools.zip
           unzip -q cmdline-tools.zip
           mv cmdline-tools latest
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH" >> $GITHUB_PATH
+
+          # Add SDK paths
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+
+          # Accept licenses and install tools
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
-          echo "::set-output name=android-home::$HOME/android-sdk"
 
-      - name: Install Buildozer
+      - name: Install Buildozer & Cython
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install buildozer cython
+          pip install --upgrade pip
+          pip install buildozer cython
 
-  build_generator:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build QR_Generator APK
+      - name: Build QR Generator APK
         run: |
           cd QR_Generator
           buildozer android debug
-        env:
-          ANDROID_HOME: ${{ needs.setup.outputs.android-home }}
-          PATH: ${{ env.PATH }}
 
-      - name: Upload QR_Generator APK
+      - name: Upload QR Generator APK
         uses: actions/upload-artifact@v4
         with:
           name: QR_Generator-APK
           path: QR_Generator/bin/*.apk
 
-  build_scanner:
-    needs: setup
+  build-scanner:
     runs-on: ubuntu-latest
+    name: Build QR Scanner APK
+    needs: build-generator  # optional: remove if you want fully parallel builds
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build QR_Scanner APK
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk \
+            python3-pip python3-setuptools python3-wheel \
+            build-essential libssl-dev libffi-dev \
+            libsqlite3-dev libbz2-dev zlib1g-dev \
+            autoconf automake libtool pkg-config
+
+      - name: Install Android SDK & Build-tools
+        run: |
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          mv cmdline-tools latest
+
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+
+      - name: Install Buildozer & Cython
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython
+
+      - name: Build QR Scanner APK
         run: |
           cd QR_Scanner
           buildozer android debug
-        env:
-          ANDROID_HOME: ${{ needs.setup.outputs.android-home }}
-          PATH: ${{ env.PATH }}
 
-      - name: Upload QR_Scanner APK
+      - name: Upload QR Scanner APK
         uses: actions/upload-artifact@v4
         with:
           name: QR_Scanner-APK
