@@ -1,4 +1,4 @@
-name: Fast Build APKs
+name: Fast Parallel Build APKs
 
 on:
   push:
@@ -6,31 +6,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: ${{ runner.home }}/android-sdk
-      PATH: ${{ runner.home }}/android-sdk/cmdline-tools/latest/bin:${{ runner.home }}/android-sdk/platform-tools:$PATH:/usr/bin:$HOME/android-sdk/build-tools/34.0.0
-
+    outputs:
+      android_home: ${{ steps.set_android_home.outputs.android_home }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cache Python packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Cache Buildozer / Android SDK
-        uses: actions/cache@v3
-        with:
-          path: ~/.buildozer
-          key: ${{ runner.os }}-buildozer
-
-      - name: Set up Python 3.10
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -44,7 +28,6 @@ jobs:
             build-essential libssl-dev libffi-dev \
             libsqlite3-dev libbz2-dev zlib1g-dev \
             autoconf automake libtool pkg-config
-          git --version
 
       - name: Install Android SDK & Build-tools
         run: |
@@ -55,16 +38,22 @@ jobs:
           mv cmdline-tools latest
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34" "cmdline-tools;latest"
-
-      - name: Verify AIDL
-        run: |
-          export PATH=$HOME/android-sdk/build-tools/34.0.0:$PATH
-          aidl --help
+          echo "::set-output name=android_home::$HOME/android-sdk"
 
       - name: Install Buildozer & Cython
         run: |
           pip install --upgrade pip
           pip install buildozer cython
+
+  build_generator:
+    runs-on: ubuntu-latest
+    needs: setup
+    env:
+      ANDROID_HOME: $HOME/android-sdk
+      PATH: $HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/android-sdk/build-tools/34.0.0:$PATH
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Build QR_Generator APK
         run: |
@@ -76,6 +65,16 @@ jobs:
         with:
           name: QR_Generator-APK
           path: QR_Generator/bin/*.apk
+
+  build_scanner:
+    runs-on: ubuntu-latest
+    needs: setup
+    env:
+      ANDROID_HOME: $HOME/android-sdk
+      PATH: $HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/android-sdk/build-tools/34.0.0:$PATH
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Build QR_Scanner APK
         run: |
