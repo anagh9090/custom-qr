@@ -61,10 +61,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QR_Generator-APK
-          path: QR_Generator/bin/*.apk
+          path: |
+            QR_Generator/bin/*.apk
+            QR_Generator/.buildozer/android/platform/build-*/outputs/apk/debug/*.apk
 
       - name: Upload QR_Scanner APK
         uses: actions/upload-artifact@v4
         with:
           name: QR_Scanner-APK
-          path: QR_Scanner/bin/*.apk
+          path: |
+            QR_Scanner/bin/*.apk
+            QR_Scanner/.buildozer/android/platform/build-*/outputs/apk/debug/*.apk
+
