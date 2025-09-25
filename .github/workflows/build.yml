@@ -52,26 +52,14 @@ jobs:
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
 
           # Run generator and scanner builds in background with verbose output
-          (cd QR_Generator && buildozer -v android debug) &
-          (cd QR_Scanner && buildozer -v android debug) &
+          (cd QR_Generator && buildozer -v android debug || (echo "Generator build failed" && cat .buildozer/android/platform/build-*/*/build-output.txt || true)) &
+          (cd QR_Scanner && buildozer -v android debug || (echo "Scanner build failed" && cat .buildozer/android/platform/build-*/*/build-output.txt || true)) &
           wait
-
-      - name: Upload QR_Generator APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: QR_Generator-APK
-          path: |
-            QR_Generator/bin/*.apk
-            QR_Generator/.buildozer/android/platform/build-*/outputs/apk/debug/*.apk
-
-      - name: Upload QR_Scanner APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: QR_Scanner-APK
-          path: |
-            QR_Scanner/bin/*.apk
-            QR_Scanner/.buildozer/android/platform/build-*/outputs/apk/debug/*.apk
 
       - name: Find APKs
         run: |
-          find . -name "*.apk" || true
+          echo "Searching for APKs..."
+          find . -type f -name "*.apk" -print
+          echo "Dumping build logs (if available)..."
+          find . -type f -name "build-output.txt" -exec echo "---- {} ----" \; -exec cat {} \; || true
+
