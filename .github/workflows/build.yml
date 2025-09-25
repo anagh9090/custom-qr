@@ -29,6 +29,12 @@ jobs:
             build-essential libssl-dev libffi-dev \
             libsqlite3-dev libbz2-dev zlib1g-dev \
             autoconf automake libtool pkg-config
+            
+      - name: Ensure AIDL is installed
+        run: |
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
+          ls -l $HOME/android-sdk/build-tools/34.0.0/aidl || echo "AIDL not found!"
+          echo "$HOME/android-sdk/build-tools/34.0.0" >> $GITHUB_PATH
 
       - name: Install Android SDK & Build-tools
         run: |
