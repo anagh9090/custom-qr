@@ -1,4 +1,4 @@
-name: Build QR APKs
+name: Build APKs
 
 on:
   push:
@@ -8,8 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: ${{ github.workspace }}/android-sdk
 
     steps:
       - name: Checkout repository
@@ -29,28 +27,20 @@ jobs:
             build-essential libssl-dev libffi-dev \
             libsqlite3-dev libbz2-dev zlib1g-dev \
             autoconf automake libtool pkg-config
-            
-      - name: Ensure AIDL is installed
-        run: |
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
-          ls -l $HOME/android-sdk/build-tools/34.0.0/aidl || echo "AIDL not found!"
-          echo "$HOME/android-sdk/build-tools/34.0.0" >> $GITHUB_PATH
 
-      - name: Install Android SDK & Build-tools
+      - name: Install Android SDK & build-tools
         run: |
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
           curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o cmdline-tools.zip
           unzip -q cmdline-tools.zip
+          rm cmdline-tools.zip
+          # Fix: rename for proper PATH
           mv cmdline-tools latest
-
-          # Add SDK paths to GitHub Actions environment
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-
-          # Accept licenses and install platforms/build-tools
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
       - name: Install Buildozer
         run: |
@@ -59,16 +49,13 @@ jobs:
 
       - name: Build APKs in parallel
         run: |
-          # Start generator build in background
-          cd QR_Generator
-          buildozer android debug &
-          pid_generator=$!
-          cd ../QR_Scanner
-          buildozer android debug &
-          pid_scanner=$!
-          # Wait for both to finish
-          wait $pid_generator
-          wait $pid_scanner
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
+          # Run generator and scanner builds in background
+          (cd QR_Generator && buildozer android debug) &
+          (cd QR_Scanner && buildozer android debug) &
+          wait
 
       - name: Upload QR_Generator APK
         uses: actions/upload-artifact@v4
